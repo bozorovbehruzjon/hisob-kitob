@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hisob-kitob</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #eef2f7;
+        margin: 0;
+        padding: 10px;
+      }
+      h2 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 15px;
+      }
+      .container {
+        max-width: 500px;
+        margin: auto;
+        background: #fff;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      }
+      input,
+      button,
+      select {
+        padding: 10px;
+        margin: 5px 0;
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 16px;
+        box-sizing: border-box;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .tovar-card {
+        background: #f9f9f9;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .tovar-card div {
+        display: flex;
+        justify-content: space-between;
+        margin: 4px 0;
+      }
+      .tovar-card div label {
+        font-weight: bold;
+      }
+      .tovar-card div input {
+        width: 80px;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+      }
+      .delete-btn {
+        background: #dc3545;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 5px;
+      }
+      .delete-btn:hover {
+        background: #a71d2a;
+      }
+      .totals {
+        margin-top: 15px;
+        background: #f1f1f1;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .totals h3 {
+        margin: 5px 0;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Hisob-kitob</h2>
+
+      <div>
+        <label for="tovarSelect">Tovar tanlang:</label>
+        <select id="tovarSelect">
+          <option value="">--Tovar tanlang--</option>
+        </select>
+
+        <input
+          type="text"
+          id="newTovar"
+          placeholder="Yangi tovar nomi (agar yo‘q bo‘lsa)"
+        />
+        <input type="number" id="tovarSoni" placeholder="Tovar soni" />
+        <input type="number" id="tovarNarxi" placeholder="Narxi (so'm)" />
+        <button onclick="addTovar()">Tovar qo'shish</button>
+      </div>
+
+      <div id="tovarList"></div>
+
+      <div class="totals">
+        <h3 id="dailyTotal">Kunlik sotuv: 0 so'm</h3>
+      </div>
+
+      <button onclick="resetDaily()">Kunlikni yangilash</button>
+    </div>
+
+    <script>
+      let tovarlar = [];
+      const select = document.getElementById("tovarSelect");
+
+      // LocalStorage’dan yuklash
+      if (localStorage.getItem("tovarlar")) {
+        tovarlar = JSON.parse(localStorage.getItem("tovarlar"));
+        renderCards();
+        populateSelect();
+      }
+
+      // Select-ga optionlarni tiklash
+      function populateSelect() {
+        // Hozirgi tanlovni saqlash
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">--Tovar tanlang--</option>';
+        tovarlar.forEach((t) => {
+          const option = document.createElement("option");
+          option.value = t.name;
+          option.textContent = t.name;
+          select.appendChild(option);
+        });
+        // Tanlangan qiymatni tiklash
+        if (currentValue) select.value = currentValue;
+      }
+
+      // LocalStorage saqlash
+      function saveStorage() {
+        localStorage.setItem("tovarlar", JSON.stringify(tovarlar));
+      }
+
+      // Tovar qo‘shish
+      function addTovar() {
+        let name = select.value;
+        const newName = document.getElementById("newTovar").value.trim();
+        if (newName) name = newName;
+
+        const soni = parseInt(document.getElementById("tovarSoni").value);
+        const narxi = parseFloat(document.getElementById("tovarNarxi").value);
+
+        if (!name || isNaN(soni) || isNaN(narxi)) {
+          alert("Iltimos, barcha maydonlarni to‘ldiring!");
+          return;
+        }
+
+        let existing = tovarlar.find((t) => t.name === name);
+        if (existing) {
+          existing.start += soni;
+          existing.remaining += soni;
+          existing.dailyRemaining += soni;
+        } else {
+          tovarlar.push({
+            name: name,
+            start: soni,
+            remaining: soni,
+            price: narxi,
+            dailyRemaining: soni,
+          });
+        }
+
+        // Inputlarni tozalash
+        document.getElementById("tovarSoni").value = "";
+        document.getElementById("tovarNarxi").value = "";
+        document.getElementById("newTovar").value = "";
+        select.value = "";
+
+        saveStorage();
+        populateSelect(); // Select yangilash
+        renderCards();
+      }
+
+      // Qolganni update qilish
+      function updateRemaining(name, value) {
+        let val = parseInt(value);
+        if (!isNaN(val)) {
+          let tovar = tovarlar.find((t) => t.name === name);
+          if (tovar) {
+            if (val > tovar.start) val = tovar.start;
+            if (val < 0) val = 0;
+            tovar.remaining = val;
+            saveStorage();
+            renderCards();
+          }
+        }
+      }
+
+      // Tovar o‘chirish
+      function deleteTovar(name) {
+        if (confirm("Haqiqatan ham o‘chirmoqchimisiz?")) {
+          tovarlar = tovarlar.filter((t) => t.name !== name);
+          saveStorage();
+          populateSelect();
+          renderCards();
+        }
+      }
+
+      // Kunlikni reset
+      function resetDaily() {
+        if (confirm("Kunlik sotuvni 0 ga qaytarilsinmi?")) {
+          tovarlar.forEach((t) => (t.dailyRemaining = t.remaining));
+          saveStorage();
+          renderCards();
+        }
+      }
+
+      // Kartochkalarni render qilish
+      function renderCards() {
+        const list = document.getElementById("tovarList");
+        list.innerHTML = "";
+        let totalSold = 0;
+        let dailyTotalSum = 0;
+
+        tovarlar.forEach((t) => {
+          let sold = t.start - t.remaining;
+          let dailySold = t.dailyRemaining - t.remaining;
+          let sum = sold * t.price;
+          totalSold += sold;
+          dailyTotalSum += dailySold * t.price;
+
+          const card = document.createElement("div");
+          card.className = "tovar-card";
+          card.innerHTML = `
+            <div><label>Tovar:</label> <span>${t.name}</span></div>
+            <div><label>Boshlang‘ich:</label> <span>${t.start} ta</span></div>
+            <div><label>Qolgan:</label> <input type="number" value="${t.remaining}" min="0" max="${t.start}" onchange="updateRemaining('${t.name}', this.value)"></div>
+            <div><label>Sotilgan:</label> <span>${sold} ta</span></div>
+            <div><label>Narxi:</label> <span>${t.price} ming</span></div>
+            <div><label>Summa:</label> <span>${sum} ming </span></div>
+            <button class="delete-btn" onclick="deleteTovar('${t.name}')">O'chirish</button>
+        `;
+          list.appendChild(card);
+        });
+        document.getElementById(
+          "dailyTotal"
+        ).innerText = `Kunlik sotuv: ${dailyTotalSum} so'm`;
+      }
+    </script>
+  </body>
+</html>
